@@ -1,4 +1,6 @@
 # import SpicePy modules
+import sys
+sys.path.insert(1, "../")
 import netlist as ntl
 from netsolve import net_solve
 import matplotlib.pyplot as plt

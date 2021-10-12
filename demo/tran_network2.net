@@ -2,6 +2,8 @@
 I1 0 1 8
 R1 1 0 5
 R2 1 2 5
+D1 1 2 MyIdealDiode
 L1 2 0 2m ic=8 ; inductors with initial condition
 .tran 1u 1.2m
 .plot v(L1) i(L1) v(R1) i(R1)
+.model MyIdealDiode D(Ron=.1 Roff=1Meg Vfwd=.4)

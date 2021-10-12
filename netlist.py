@@ -138,7 +138,6 @@ class Network:
 
         :param filename:
         """
-
         # initialization of other possible attributes
         self.A = None
         self.G = None
@@ -153,6 +152,9 @@ class Network:
         self.pb = None
         self.unit_prefix = {'meg': 'e6', 'f': 'e-15', 'p': 'e-12', 'n': 'e-9', 'u': 'e-6', 'm': 'e-3', 'k': 'e3', 'g': 'e9', 't': 'e12'}
 
+        #load default models
+        self.default_models()
+
         # common attributes
         (self.names,
          self.values,
@@ -164,8 +166,24 @@ class Network:
          self.node_num,
          self.analysis,
          self.plot_cmd,
-         self.tf_cmd) = self.read_netlist(filename)
+         self.tf_cmd,
+         self.models) = self.read_netlist(filename)
+        
+        self.load_default_models()
+        
+    def default_models(self):
+        """
+        Defines default models for Diodes, Transistors, Memristors 
+        If the model of the device is D, Q, M, the default model will be 
+        used. dont overwrite this models like D1 1 2 D
+        Returns
+        -------
+        None.
 
+        """
+        self.defaultmodelnames = ["D","M", "Q"]
+        self.defaultmodel["D"] = {"device":"D", "param": {"IS":1.0E-14, "RS":0, "N":1, "TT":0, "CJO": 0, "VJ":1, "M": 0.5, "EG":1.11, "XTI": 3, "KF": None, "AF": 1, "FC": 0.5, "BV": 1000,"IBV": 1.0E-3 }}
+        
     def read_netlist(self, filename):
         """
         'readNetlist' reads a SPICE netlist
@@ -193,6 +211,8 @@ class Network:
         IC = {}
         source_type = {}
         control_source = {}
+        models = {}
+        
         plot_cmd = None
         tf_cmd = None
         analysis = None
@@ -240,9 +260,20 @@ class Network:
                         elif line.lower().find('.backanno') != -1:    # skip .backanno if present
                             pass
 
-                        else:    # save analysis type
+                        elif line.lower().find('.tran')!= -1 or line.lower().find('.ac')!= -1 or line.lower().find('.op')!= -1:    # save analysis type
                             # split into a list
                             analysis = line.split()
+                        # look for a model deffinition
+                        elif line.lower().find('.model')!= -1:
+                            if line.split(" ")[1].upper() in self.defaultmodelnames:
+                                raise ValueError("You cannot name a Model:" + line.split(" ")[1].upper() + ". This is the name of the default model")
+                            params = {}
+                            for param in line.split("(")[1].replace(")","").split(" "): 
+                                params[param.split("=")[0]] = self.convert_unit(param.split("=")[1])                             
+                            models[line.split(" ")[1]]={"device":line.split(" ")[2].split("(")[0], "param": params}
+                        else:
+                            print(line.lower().split(" ")[0])
+                            
 
                 else:
                     pass
@@ -413,7 +444,7 @@ class Network:
         Nn = nodes.max()
 
         # return network structure
-        return names, values, IC, source_type, control_source, nodes, node_labels2num, Nn, analysis, plot_cmd, tf_cmd
+        return names, values, IC, source_type, control_source, nodes, node_labels2num, Nn, analysis, plot_cmd, tf_cmd, models
 
     def convert_unit(self, string_value):
         """
