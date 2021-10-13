@@ -153,7 +153,7 @@ class Network:
         self.unit_prefix = {'meg': 'e6', 'f': 'e-15', 'p': 'e-12', 'n': 'e-9', 'u': 'e-6', 'm': 'e-3', 'k': 'e3', 'g': 'e9', 't': 'e12'}
 
         #load default models
-        self.default_models()
+        self.load_default_models()
 
         # common attributes
         (self.names,
@@ -169,20 +169,30 @@ class Network:
          self.tf_cmd,
          self.models) = self.read_netlist(filename)
         
-        self.load_default_models()
         
-    def default_models(self):
+        
+    def load_default_models(self, ):
         """
         Defines default models for Diodes, Transistors, Memristors 
         If the model of the device is D, Q, M, the default model will be 
-        used. dont overwrite this models like D1 1 2 D
+        used. dont overwrite this models like .model D D(...)
         Returns
         -------
         None.
 
         """
-        self.defaultmodelnames = ["D","M", "Q"]
-        self.defaultmodel["D"] = {"device":"D", "param": {"IS":1.0E-14, "RS":0, "N":1, "TT":0, "CJO": 0, "VJ":1, "M": 0.5, "EG":1.11, "XTI": 3, "KF": None, "AF": 1, "FC": 0.5, "BV": 1000,"IBV": 1.0E-3 }}
+        #names of default models:
+        self.default_model_names = ["D","M", "Q"]
+        self.default_models = {}
+        #Diode:
+        self.default_models["D"] = {"device":"D", "param": {"IS":1.0E-14, "RS":0, "N":1, "TT":0, "CJO": 0, "VJ":1, "M": 0.5, "EG":1.11, "XTI": 3, "KF": None, "AF": 1, "FC": 0.5, "BV": 1000,"IBV": 1.0E-3 }}
+        #BJT:
+        #TODO: add BJT standart model
+        #MOSFET:
+        #TODO: add NMOS, PMOS standart model
+        self.default_models["M"] = None
+        #OP:
+        #TODO: add operation amplifier standart model  
         
     def read_netlist(self, filename):
         """
@@ -219,6 +229,8 @@ class Network:
 
         # initial letter of all available components
         initials = ['V', 'I', 'R', 'C', 'L', 'E', 'F', 'G', 'H']
+        # add the name of active components to itials
+        initials =  initials + self.default_model_names
         components = []
 
         # 1) get the analysis type
@@ -242,6 +254,8 @@ class Network:
                         line = line.replace('\n', '')
                         # add to component list
                         components.append(line)
+                    elif line[0].upper() not in initials and line[0] != '.':
+                        raise ValueError("Unknown parameter "+ line[0].upper())
 
                     # check if line describes a command
                     elif line[0] == '.':
@@ -265,7 +279,7 @@ class Network:
                             analysis = line.split()
                         # look for a model deffinition
                         elif line.lower().find('.model')!= -1:
-                            if line.split(" ")[1].upper() in self.defaultmodelnames:
+                            if line.split(" ")[1].upper() in self.default_model_names:
                                 raise ValueError("You cannot name a Model:" + line.split(" ")[1].upper() + ". This is the name of the default model")
                             params = {}
                             for param in line.split("(")[1].replace(")","").split(" "): 
@@ -429,6 +443,15 @@ class Network:
                 control_source[sline[0]] = sline[3]
                 # get gain
                 values.append(float(self.convert_unit(sline[4])))
+            
+            # search for active components
+            elif sline[0][0].upper() == 'D': #diode
+                names.append(sline[0])
+                print(1)
+            
+            else:
+                raise ValueError("unknown parameter: " + str(sline[0][0].upper()))
+                
 
         # reordering nodes
         unique_names, ii = np.unique(node_labels, return_inverse=True)
